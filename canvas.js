@@ -20,6 +20,7 @@ function Canvas(id){
     this._.children = [];
     this.element = document.querySelector(id);
     this.context = this.element.getContext("2d");
+    this.mathAxis();
 }
 
 Canvas.prototype = {
@@ -186,8 +187,16 @@ Circle.inherit(Arc, {
 
 });
 
-var getMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.getUserMedia;
-var createURL = webkitURL.createObjectURL || URL.createObjectURL;
+var getMedia = (function() {
+    var fn = navigator.getUserMedia       || 
+             navigator.webkitGetUserMedia ||
+             navigator.mozGetUserMedia;
+    return fn.bind(navigator);
+})();
+var createURL = (function() {
+    var fn = webkitURL.createObjectURL || URL.createObjectURL;
+    return fn;
+}());
 
 function Webcam(args){
     args || (args = {});
@@ -195,12 +204,15 @@ function Webcam(args){
         audio: args.audio,
         video: (args.video === undefined ? true : args.video)
     };
+    this.mirror = args.mirror === undefined || !!args.mirror ? true : false;
+    this.width = args.w || 640;
+    this.height = args.h || 480;
+    !!args.x || (args.x = 0);
+    !!args.y || (args.y = 0);
     this.position = {
-        x: args.x,
-        y: args.y
+        x: this.mirror ? args.x + this.width : args.x,
+        y: args.y + this.height
     };
-    this.width = args.w;
-    this.height = args.h;
     this.element = document.createElement("video");
     var self = this;
     getMedia(this.options, function(stream){
@@ -217,14 +229,19 @@ Webcam.prototype = {
         this.active = true;
     },
 
-    render: function(ctx){
+    render: function(ctx, canvas){
+        ctx.save();
+        this.mirror && (ctx.translate(ctx.canvas.clientWidth, 0), ctx.scale(-1, 1));
+        ctx.translate(0, ctx.canvas.clientHeight);
+        ctx.scale(1, -1);
         ctx.drawImage(
             this.element, 
-            (this.position.x || 0),
-            (this.position.y || 0),
-            (this.width || 640),
-            (this.height || 480)
+            this.position.x,
+            this.position.y,
+            this.width,
+            this.height
         ); 
+        ctx.restore();
     }
 
 }; 
@@ -238,6 +255,10 @@ Vector.prototype = {
 
     add: function(vec){
         return (this.x += vec.x, this.y += vec.y, this);
+    },
+
+    sub: function(vec){
+        return (this.x -= vec.x, this.y -= vec.y, this);
     },
 
     mult: function(vec){
